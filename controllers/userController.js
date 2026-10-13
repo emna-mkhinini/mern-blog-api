@@ -1,145 +1,156 @@
-const {
-    estNonVide,
-    estEmailValide
-} = require("../utils/validators");
-
-
-// Données utilisateurs en mémoire
-
-let users = [
-    {
-        id: 1,
-        name: "Admin",
-        email: "admin@gmail.com",
-        role: "admin"
-    },
-    {
-        id: 2,
-        name: "Aya",
-        email: "aya@gmail.com",
-        role: "user"
-    }
-];
-
-let prochainUserId = 3;
+const User = require("../models/usermodel");
 
 
 // 1. Récupérer tous les utilisateurs
+// GET /api/users
+const getAllUsers = async (req, res) => {
+    try {
+        const { role } = req.query;
 
-const getAllUsers = (req, res) => {
+        const filtre = role ? { role } : {};
 
-    const { role } = req.query;
+        const users = await User.find(filtre);
 
-    let resultat = users;
-
-    if (role) {
-        resultat = users.filter(
-            u => u.role === role
-        );
+        res.status(200).json({
+            total: users.length,
+            users: users
+        });
+    } catch (err) {
+        res.status(500).json({
+            message: err.message
+        });
     }
-
-    res.status(200).json({
-        total: resultat.length,
-        users: resultat
-    });
 };
-
 
 // 2. Récupérer un utilisateur par ID
+// GET /api/users/:id
+const getUserById = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
 
-const getUserById = (req, res) => {
+        if (!user) {
+            return res.status(404).json({
+                error: "Utilisateur introuvable"
+            });
+        }
 
-    const id = Number(req.params.id);
+        res.status(200).json(user);
+    } catch (err) {
+        if (err.name === "CastError") {
+            return res.status(400).json({
+                error: "Identifiant invalide"
+            });
+        }
 
-    const user = users.find(
-        u => u.id === id
-    );
-
-    if (!user) {
-        return res.status(404).json({
-            error: `Utilisateur ${id} introuvable`
+        res.status(500).json({
+            message: err.message
         });
     }
-
-    res.status(200).json(user);
 };
-
 
 // 3. Créer un utilisateur
+// POST /api/users
+const createUser = async (req, res) => {
+    try {
+        const { name, email, age, role } = req.body;
 
-const createUser = (req, res) => {
+        // Vérifier les champs obligatoires
+        if (
+            typeof name !== "string" ||
+            !name.trim() ||
+            typeof email !== "string" ||
+            !email.trim()
+        ) {
+            return res.status(400).json({
+                error: "Le nom et l'email sont obligatoires"
+            });
+        }
 
-    const {
-        name,
-        email,
-        role
-    } = req.body;
+        // Vérifier le format de l'email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+        const emailNormalise = email.trim().toLowerCase();
 
-    // Validation du nom
+        if (!emailRegex.test(emailNormalise)) {
+            return res.status(400).json({
+                error: "L'email est invalide"
+            });
+        }
 
-    if (!estNonVide(name)) {
-        return res.status(400).json({
-            error: "Le nom est obligatoire"
+        // Vérifier si l'email existe déjà
+        const exists = await User.findOne({
+            email: emailNormalise
+        });
+
+        if (exists) {
+            return res.status(409).json({
+                error: "Cet email est déjà utilisé"
+            });
+        }
+
+        // Créer un nouvel utilisateur
+        const user = await User.create({
+            name: name.trim(),
+            email: emailNormalise,
+            age,
+            role: role || "user"
+        });
+
+        res.status(201).json({
+            message: "Utilisateur créé avec succès",
+            user: user
+        });
+    } catch (err) {
+        // Gérer les erreurs de validation Mongoose
+        if (err.name === "ValidationError") {
+            return res.status(400).json({
+                error: err.message
+            });
+        }
+
+        // Gérer les erreurs de doublon MongoDB
+        if (err.code === 11000) {
+            return res.status(409).json({
+                error: "Cet email est déjà utilisé"
+            });
+        }
+
+        res.status(500).json({
+            message: err.message
         });
     }
-
-
-    // Validation de l'email
-
-    if (!estEmailValide(email)) {
-        return res.status(400).json({
-            error: "L'email est invalide"
-        });
-    }
-
-    const nouvelUser = {
-        id: prochainUserId++,
-        name,
-        email,
-        role: role || "user"
-    };
-
-
-    users.push(nouvelUser);
-
-
-    res.status(201).json({
-        message: "Utilisateur créé",
-        user: nouvelUser
-    });
 };
-
 
 // 4. Supprimer un utilisateur
+// DELETE /api/users/:id
+const deleteUser = async (req, res) => {
+    try {
+        const user = await User.findByIdAndDelete(req.params.id);
 
-const deleteUser = (req, res) => {
+        if (!user) {
+            return res.status(404).json({
+                error: "Utilisateur introuvable"
+            });
+        }
 
-    const id = Number(req.params.id);
+        res.status(200).json({
+            message: "Utilisateur supprimé avec succès",
+            user: user
+        });
+    } catch (err) {
+        if (err.name === "CastError") {
+            return res.status(400).json({
+                error: "Identifiant invalide"
+            });
+        }
 
-    const userExiste = users.some(
-        u => u.id === id
-    );
-
-
-    if (!userExiste) {
-        return res.status(404).json({
-            error: `Utilisateur ${id} introuvable`
+        res.status(500).json({
+            message: err.message
         });
     }
-
-
-    users = users.filter(
-        u => u.id !== id
-    );
-
-
-    res.status(200).json({
-        message: `Utilisateur ${id} supprimé avec succès`
-    });
 };
 
-
+// Exporter les fonctions du contrôleur
 module.exports = {
     getAllUsers,
     getUserById,

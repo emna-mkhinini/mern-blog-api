@@ -1,53 +1,37 @@
-const express = require("express");
+const express = require('express');
+const dotenv = require('dotenv');
+const connectDB = require('./config/db');
+const articleRoutes = require('./routes/articleRoutes');
+const userRoutes = require('./routes/userRoutes');
 
-const articleRoutes = require("./routes/articleRoutes");
-
-const userRoutes = require("./routes/userRoutes");
-
+// Chargement des variables d’environnement (.env)
+dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-const PORT = 3000;
-
-
-// Middleware global
-
+// Middleware pour parser le corps des requêtes en JSON
 app.use(express.json());
 
+// Route principale
+app.get('/', (req, res) => {
+  res.json({ message: 'Bienvenue sur mon API' });
+});
 
-// Routes Articles
+// Montage des routeurs modulaires
+app.use('/api/articles', articleRoutes);
+app.use('/api/users', userRoutes);
 
-app.use(
-    "/api/articles",
-    articleRoutes
-);
+// Connexion à MongoDB Atlas puis démarrage du serveur
+(async () => {
+  try {
+    await connectDB(process.env.MONGODB_URI);
 
-
-// Routes Users
-
-app.use(
-    "/api/users",
-    userRoutes
-);
-
-
-// Route d'accueil
-
-app.get("/", (req, res) => {
-
-    res.json({
-        message: "API du Blog - Serveur Modulaire Opérationnel (SoC)"
+    app.listen(PORT, () => {
+      console.log(`Serveur MERN en écoute sur http://localhost:${PORT}`);
     });
-
-});
-
-
-// Démarrage du serveur
-
-app.listen(PORT, () => {
-
-    console.log(
-        `Serveur modulaire en écoute sur http://localhost:${PORT}`
-    );
-
-});
+  } catch (err) {
+    console.error('Erreur critique de demarrage du serveur :', err.message);
+    process.exit(1);
+  }
+})();
