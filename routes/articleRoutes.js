@@ -1,13 +1,31 @@
 const express = require('express');
 const router = express.Router();
-const articleController = require('../controllers/articleController');
 
-// Remarque capitale : Le préfixe '/api/articles' sera défini dans server.js.
-// Ici, '/' représente donc la racine de la ressource : '/api/articles' !
-router.get('/', articleController.getAllArticles);
-router.get('/:id', articleController.getArticleById);
-router.post('/', articleController.createArticle);
-router.put('/:id', articleController.updateArticle);
-router.delete('/:id', articleController.deleteArticle);
+const {
+  getAllArticles,
+  getMyArticles,
+  getArticleById,
+  createArticle,
+  updateArticle,
+  deleteArticle
+} = require('../controllers/articleController');
+const { protect } = require('../middlewares/authMiddleware');
+
+// Le préfixe '/api/articles' est défini dans server.js :
+// ici '/' représente donc '/api/articles'.
+
+// Consultation publique
+router.get('/', getAllArticles);
+
+// Exercice 2 : articles de l'utilisateur connecté
+// ⚠️ Doit être déclarée AVANT '/:id', sinon "my-articles" serait pris pour un id
+router.get('/my-articles', protect, getMyArticles);
+
+router.get('/:id', getArticleById);
+
+// Actions protégées (token JWT obligatoire)
+router.post('/', protect, createArticle);
+router.put('/:id', protect, updateArticle);
+router.delete('/:id', protect, deleteArticle);
 
 module.exports = router;
